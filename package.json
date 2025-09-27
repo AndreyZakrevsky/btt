@@ -1,0 +1,47 @@
+{
+  "name": "BTT",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "pm2 start src/index.js && pm2 logs",
+    "flush": "pm2 flush && pm2 delete all",
+    "stop": "pm2 stop src/index.js",
+    "delete": "pm2 delete src/index.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@binance/connector": "^3.6.1",
+    "axios": "^1.12.2",
+    "big.js": "^6.1.1",
+    "bybit-api": "^4.3.1",
+    "ccxt": "^4.5.4",
+    "dotenv": "^17.2.2",
+    "gate-api": "^7.1.8",
+    "i18next": "^25.5.2",
+    "i18next-fs-backend": "^2.6.0",
+    "i18next-http-middleware": "^3.8.0",
+    "lowdb": "^2.0.2",
+    "luxon": "^3.7.2",
+    "mongodb": "^6.20.0",
+    "mongoose": "^8.18.2",
+    "nodemon": "^3.1.10",
+    "path": "^0.12.7",
+    "telegraf": "^4.16.3",
+    "telegraf-session-local": "^2.1.1",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^16.4.0",
+    "prettier": "^3.6.2"
+  },
+  "author": "",
+  "license": "ISC"
+}
