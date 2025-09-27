@@ -2,7 +2,7 @@ import ccxt from 'ccxt';
 import Big from 'big.js';
 import 'dotenv/config';
 import { DatabaseLocal } from './services/localDb.service.js';
-import { Telegraf } from 'telegraf';
+import { Telegraf, Markup } from 'telegraf';
 
 export class BinanceTrader {
     constructor(tradeConfig) {
@@ -19,6 +19,10 @@ export class BinanceTrader {
         this.averageSellPrice = 0;
         this.sellAmount = 0;
         this.tickCount = 0;
+        this.trading = false;
+        this.currentPrice = null;
+
+        this._setupBotInterface();
 
         this.tg_bot.launch();
         process.once('SIGINT', () => this.tg_bot.stop('SIGINT'));
@@ -26,8 +30,9 @@ export class BinanceTrader {
     }
 
     async tick() {
-        while (true) {
+        while (this.trading) {
             await this._sleep(this.configTrade.tickInterval);
+            this.currentPrice = await this._getLastMarketPrice();
             await this._trade();
             this.tickCount += 1;
         }
@@ -35,33 +40,31 @@ export class BinanceTrader {
 
     async _trade() {
         const baseBalance = await this._getBaseBalance();
-        const assetBalance = await this._getAssetBalance();
         const { averageSellPrice = 0, amount = 0 } = await this.dbService.getData();
 
         this.averageSellPrice = averageSellPrice;
         this.sellAmount = amount;
-        const currentMarketPrice = await this._getLastMarketPrice();
+        this.currentPrice = await this._getLastMarketPrice();
 
-        if (!currentMarketPrice) return;
+        if (!this.currentPrice) return;
 
         if (averageSellPrice === 0) {
+            await this._notifyTelegram(`Start selling at price: ${this.currentPrice}`);
             return await this._sell(this.configTrade.sellStepInUsdt);
         }
 
-        // return await this._buy(this.sellAmount);
-
-        const priceDifference = new Big(currentMarketPrice).minus(new Big(this.averageSellPrice)).toNumber();
+        const priceDifference = new Big(this.currentPrice).minus(new Big(this.averageSellPrice)).toNumber();
 
         if (priceDifference > 0) {
-            if (this.averageSellPrice + this.configTrade.clearanceSell < currentMarketPrice && baseBalance > this.configTrade.sellStepInUsdt) {
-                await this._notifyTelegram(`Selling at price: ${currentMarketPrice}`);
+            if (this.averageSellPrice + this.configTrade.clearanceSell < this.currentPrice && baseBalance > this.configTrade.sellStepInUsdt) {
+                await this._notifyTelegram(`Start selling at price: ${this.currentPrice}`);
                 return await this._sell(this.configTrade.sellStepInUsdt);
             }
         }
 
         if (priceDifference < 0) {
-            if (this.averageSellPrice - this.configTrade.clearanceBuy >= currentMarketPrice) {
-                await this._notifyTelegram(`Buying at price: ${currentMarketPrice}`);
+            if (this.averageSellPrice - this.configTrade.clearanceBuy >= this.currentPrice) {
+                await this._notifyTelegram(`Start buying at price: ${this.currentPrice}`);
                 return await this._buy(this.sellAmount);
             }
         }
@@ -73,12 +76,12 @@ export class BinanceTrader {
 
             if (status === 'closed') {
                 const notification = `🔴 SELL completed at price: ${price} (fee: ${fee?.cost || 0})`;
-                console.log(notification);
                 await this.dbService.setData(amount, price, fee?.cost || 0);
+                this.averageSellPrice = price;
+                this.currentPrice = price;
                 await this._notifyTelegram(notification);
             }
         } catch (e) {
-            console.log('SELL || ', e.message);
             await this._notifyTelegram(`❌ SELL ERROR: ${e.message}`);
         }
     }
@@ -89,12 +92,12 @@ export class BinanceTrader {
 
             if (status === 'closed' && price) {
                 const notification = `🟢 BUY completed at price: ${price}, amount: ${amount}`;
-                console.log(notification);
                 await this.dbService.updateData(price);
+                this.averageSellPrice = price;
+                this.currentPrice = price;
                 await this._notifyTelegram(notification);
             }
         } catch (e) {
-            console.log('BUY || ', e.message);
             await this._notifyTelegram(`❌ BUY ERROR: ${e.message}`);
         }
     }
@@ -102,7 +105,10 @@ export class BinanceTrader {
     async _notifyTelegram(message) {
         try {
             const chatId = process.env.TG_CHAT_ID;
-            if (chatId) await this.tg_bot.telegram.sendMessage(chatId, message);
+            if (!chatId) return;
+
+            await this.tg_bot.telegram.sendMessage(chatId, message);
+            console.log(message);
         } catch (e) {
             console.log(`Telegram notification failed: ${e.message}`);
         }
@@ -143,5 +149,71 @@ export class BinanceTrader {
 
     _sleep(time) {
         return new Promise((resolve) => setTimeout(resolve, time));
+    }
+
+    _setupBotInterface() {
+        this.tg_bot.start(async (ctx) => {
+            await ctx.reply(
+                'Welcome to Binance Trader Bot! Use the buttons below to control the bot.',
+                Markup.keyboard([
+                    ['Start Trading', 'Stop Trading'],
+                    ['Status', 'Clean'],
+                ])
+                    .resize()
+                    .persistent()
+            );
+        });
+
+        this.tg_bot.hears('Start Trading', async (ctx) => {
+            if (this.trading) {
+                return ctx.reply('❗ Trading is already running.');
+            }
+
+            this.trading = true;
+            ctx.reply('✅ Trading has started!');
+            this.tick();
+        });
+
+        this.tg_bot.hears('Stop Trading', async (ctx) => {
+            if (!this.trading) {
+                return ctx.reply('❗ Trading is already stopped.');
+            }
+
+            this.trading = false;
+            ctx.reply('🛑 Trading has stopped!');
+        });
+
+        this.tg_bot.hears('Status', async (ctx) => {
+            const operationData = await this.dbService.getData();
+
+            const averageSellPrice = operationData.averageSellPrice || 0;
+
+            const extendedInfo = `
+Status: ${this.trading ? '✅ Running' : '🛑 Stopped'}
+Current Market Price: ${this.currentPrice !== null ? this.currentPrice : 0}
+Average Sell Price: ${averageSellPrice}
+Sell Count: ${operationData.sellCount || 0}
+Amount Sold: ${operationData.amount || 0}
+Fee: ${operationData.fee || 0}
+`;
+
+            ctx.reply(extendedInfo);
+        });
+
+        this.tg_bot.hears('Clean', async (ctx) => {
+            await ctx.reply(
+                '⚠️ Are you sure you want to clean the database?',
+                Markup.inlineKeyboard([Markup.button.callback('Yes', 'clean_confirm'), Markup.button.callback('No', 'clean_cancel')])
+            );
+        });
+
+        this.tg_bot.action('clean_confirm', async (ctx) => {
+            await this.dbService.cleanUp();
+            ctx.reply('✅ Database cleaned successfully.');
+        });
+
+        this.tg_bot.action('clean_cancel', async (ctx) => {
+            ctx.reply('❌ Clean operation canceled.');
+        });
     }
 }

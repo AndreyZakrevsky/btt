@@ -3,7 +3,7 @@ import { BinanceTrader } from './bot.js';
 const configUAH = {
     asset: 'UAH',
     base: 'USDT',
-    clearanceSell: 0.2,
+    clearanceSell: 0.1,
     clearanceBuy: 0.25,
     tickInterval: 15000,
     sellStepInUsdt: 20,

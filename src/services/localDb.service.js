@@ -68,6 +68,10 @@ export class DatabaseLocal {
         await this.db.write();
     }
 
+    async cleanUp() {
+        await this._initDefault();
+    }
+
     async getData() {
         await this.db.read();
         return this.db?.data?.operationData;
