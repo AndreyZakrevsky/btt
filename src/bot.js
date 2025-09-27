@@ -30,12 +30,14 @@ export class BinanceTrader {
     }
 
     async tick() {
-        while (this.trading) {
-            await this._sleep(this.configTrade.tickInterval);
-            this.currentPrice = await this._getLastMarketPrice();
-            await this._trade();
-            this.tickCount += 1;
-        }
+
+        console.log(process.env.API_KEY, process.env.API_SECRET, this.binanceClient)
+        // while (this.trading) {
+        //     await this._sleep(this.configTrade.tickInterval);
+        //     this.currentPrice = await this._getLastMarketPrice();
+        //     await this._trade();
+        //     this.tickCount += 1;
+        // }
     }
 
     async _trade() {
