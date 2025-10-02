@@ -216,8 +216,8 @@ Fee: ${fee}
 Limit: ${this.limitBase}
 Profit: ${profit}
 
-AWAITING TO SELL:  [${this.sellClearance}]  ${awaitingSell}
-AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
+AWAITING TO SELL:  [${this.sellClearance}]  ${awaitingSell?.toFixed(4)}
+AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy?.toFixed(4)} `;
 
             ctx.reply(extendedInfo);
         });
