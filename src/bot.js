@@ -4,6 +4,9 @@ import 'dotenv/config';
 import { DatabaseLocal } from './services/localDb.service.js';
 import { Telegraf, Markup } from 'telegraf';
 
+const EXCHANGE_FEE = 0.998;
+const EXCHANGE_FEE_PERCENT = 0.002;
+
 export class BinanceTrader {
     constructor(tradeConfig) {
         this.binanceClient = new ccxt.binance({
@@ -12,15 +15,21 @@ export class BinanceTrader {
             options: { adjustForTimeDifference: true },
         });
 
+        this.limitBase = tradeConfig.limitBase;
+        this.sellClearance = tradeConfig.clearanceSell;
+        this.buyClearance = tradeConfig.clearanceBuy;
+        this.configTrade = tradeConfig;
+
         this.tg_bot = new Telegraf(process.env.TG_TOKEN);
         this.dbService = new DatabaseLocal();
-        this.configTrade = tradeConfig;
+
         this.market = `${tradeConfig.base}/${tradeConfig.asset}`;
         this.averageSellPrice = 0;
         this.sellAmount = 0;
         this.tickCount = 0;
         this.trading = false;
         this.currentPrice = null;
+        this.fee = 0;
 
         this._setupBotInterface();
 
@@ -32,7 +41,6 @@ export class BinanceTrader {
     async tick() {
         while (this.trading) {
             await this._sleep(this.configTrade.tickInterval);
-            this.currentPrice = await this._getLastMarketPrice();
             await this._trade();
             this.tickCount += 1;
         }
@@ -40,77 +48,86 @@ export class BinanceTrader {
 
     async _trade() {
         const baseBalance = await this._getBaseBalance();
-        const { averageSellPrice = 0, amount = 0 } = await this.dbService.getData();
+        const { averageSellPrice = 0, amount = 0, fee = 0 } = await this.dbService.getData();
 
         this.averageSellPrice = averageSellPrice;
         this.sellAmount = amount;
+        this.fee = fee;
         this.currentPrice = await this._getLastMarketPrice();
 
-        if (!this.currentPrice) return;
+        if (!this.currentPrice || !this.trading) return;
 
         if (averageSellPrice === 0) {
-            await this._notifyTelegram(`Start selling at price: ${this.currentPrice}`);
             return await this._sell(this.configTrade.sellStepInUsdt);
         }
 
         const priceDifference = new Big(this.currentPrice).minus(new Big(this.averageSellPrice)).toNumber();
 
-        if (priceDifference > 0) {
-            if (this.averageSellPrice + this.configTrade.clearanceSell < this.currentPrice && baseBalance > this.configTrade.sellStepInUsdt) {
-                await this._notifyTelegram(`Start selling at price: ${this.currentPrice}`);
+        if (priceDifference > 0 && this.sellAmount < this.limitBase) {
+            if (this.averageSellPrice + this.sellClearance < this.currentPrice && baseBalance > this.configTrade.sellStepInUsdt) {
                 return await this._sell(this.configTrade.sellStepInUsdt);
             }
         }
 
         if (priceDifference < 0) {
-            if (this.averageSellPrice - this.configTrade.clearanceBuy >= this.currentPrice) {
-                await this._notifyTelegram(`Start buying at price: ${this.currentPrice}`);
+            if (this.averageSellPrice - this.buyClearance >= this.currentPrice) {
                 return await this._buy(this.sellAmount);
             }
         }
     }
 
+    async finishBuying() {
+        const profit = this.getCurrentProfit();
+
+        await this.dbService.updateData(profit);
+    }
+
+    getCurrentProfit() {
+        if (!this.currentPrice) return 0;
+
+        const sellAmount = new Big(this.sellAmount);
+        const currentPrice = new Big(this.currentPrice);
+        const averageSellPrice = new Big(this.averageSellPrice);
+
+        return averageSellPrice.minus(currentPrice).times(sellAmount).div(currentPrice).times(EXCHANGE_FEE).toFixed(5);
+    }
+
+    test() {
+        const sellRate = 42.535;
+        const buyRate = 42.44;
+
+        const sums = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+
+        sums.forEach((amount) => {
+            const selling = amount * sellRate;
+            const buying = amount * buyRate;
+            const profitBeforeCommission = selling - buying;
+
+            const netProfit = (profitBeforeCommission / sellRate) * EXCHANGE_FEE;
+            const netProfitUA = profitBeforeCommission * EXCHANGE_FEE;
+            console.log(`Сума: $${amount}, Чистий прибуток: $${netProfit.toFixed(2)} (${netProfitUA} UAH)`);
+        });
+    }
+
     async _sell(amount) {
         try {
-            const { status, price, fee } = await this.binanceClient.createMarketSellOrder(this.market, amount);
+            const { status, price } = await this.binanceClient.createMarketSellOrder(this.market, amount);
 
             if (status === 'closed') {
-                const notification = `🔴 SELL completed at price: ${price} (fee: ${fee?.cost || 0})`;
-                await this.dbService.setData(amount, price, fee?.cost || 0);
+                await this.dbService.setData(amount, price, amount * EXCHANGE_FEE_PERCENT);
                 this.averageSellPrice = price;
-                this.currentPrice = price;
-                await this._notifyTelegram(notification);
             }
         } catch (e) {
-            await this._notifyTelegram(`❌ SELL ERROR: ${e.message}`);
+            console.log(`❌ SELL ERROR: ${e.message}`);
         }
     }
 
     async _buy(amount) {
         try {
-            const { status, price } = await this.binanceClient.createMarketBuyOrder(this.market, amount);
-
-            if (status === 'closed' && price) {
-                const notification = `🟢 BUY completed at price: ${price}, amount: ${amount}`;
-                await this.dbService.updateData(price);
-                this.averageSellPrice = price;
-                this.currentPrice = price;
-                await this._notifyTelegram(notification);
-            }
+            const { status } = await this.binanceClient.createMarketBuyOrder(this.market, amount);
+            if (status === 'closed') await this.finishBuying();
         } catch (e) {
-            await this._notifyTelegram(`❌ BUY ERROR: ${e.message}`);
-        }
-    }
-
-    async _notifyTelegram(message) {
-        try {
-            const chatId = process.env.TG_CHAT_ID;
-            if (!chatId) return;
-
-            await this.tg_bot.telegram.sendMessage(chatId, message);
-            console.log(message);
-        } catch (e) {
-            console.log(`Telegram notification failed: ${e.message}`);
+            console.log(`❌ BUY ERROR: ${e.message}`);
         }
     }
 
@@ -185,17 +202,23 @@ export class BinanceTrader {
 
         this.tg_bot.hears('Status', async (ctx) => {
             const operationData = await this.dbService.getData();
-
-            const averageSellPrice = operationData.averageSellPrice || 0;
+            const { sellCount = 0, amount = 0, fee = 0, averageSellPrice = 0 } = operationData || {};
+            const profit = this.getCurrentProfit();
+            const awaitingSell = this.averageSellPrice + this.sellClearance;
+            const awaitingBuy = this.averageSellPrice - this.buyClearance;
 
             const extendedInfo = `
 Status: ${this.trading ? '✅ Running' : '🛑 Stopped'}
-Current Market Price: ${this.currentPrice !== null ? this.currentPrice : 0}
+Current Market Price: ${this.currentPrice || 0}
 Average Sell Price: ${averageSellPrice}
-Sell Count: ${operationData.sellCount || 0}
-Amount Sold: ${operationData.amount || 0}
-Fee: ${operationData.fee || 0}
-`;
+Sell Count: ${sellCount}
+Amount Sold: ${amount}
+Fee: ${fee}
+Limit: ${this.limitBase}
+Profit: ${profit}
+
+AWAITING TO SELL:  [${this.sellClearance}]  ${awaitingSell}
+AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
 
             ctx.reply(extendedInfo);
         });
@@ -214,6 +237,29 @@ Fee: ${operationData.fee || 0}
 
         this.tg_bot.action('clean_cancel', async (ctx) => {
             ctx.reply('❌ Clean operation canceled.');
+        });
+
+        this.tg_bot.command('set', async (ctx) => {
+            const text = ctx.message.text;
+            const params = text.split(' ').slice(1);
+            const {
+                buy = null,
+                sell = null,
+                limit = null,
+            } = params.reduce((acc, param) => {
+                const [key, value] = param.split('=');
+                acc[key] = value;
+                return acc;
+            }, {});
+
+            this.sellClearance = sell || this.sellClearance;
+            this.buyClearance = buy || this.buyClearance;
+            this.limitBase = limit || this.limitBase;
+
+            if (limit || buy || sell) {
+                this.isTrading = false;
+                ctx.reply('✅ You changed configuration, the bot is stopped. Run bot to start trading with new percentage.');
+            }
         });
     }
 }

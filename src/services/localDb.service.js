@@ -43,21 +43,13 @@ export class DatabaseLocal {
 
         this.db.data.operationData.sellCount = newSellCount.toNumber();
         this.db.data.operationData.amount = newAmount.toNumber();
-        this.db.data.operationData.fee = newFee.toNumber();
+        this.db.data.operationData.fee = newFee.toNumber().toFixed(6);
         this.db.data.operationData.averageSellPrice = newAmount.gt(0) ? newSellCount.div(newAmount).toNumber() : 0;
 
         await this.db.write();
     }
 
-    async updateData(currentPrice) {
-        const { amount = 0, fee = 0 } = this.db.data.operationData;
-
-        this.db.data.successfullyClosed.push({
-            amount,
-            price: currentPrice,
-            fee: fee * 2,
-        });
-
+    async updateData() {
         this.db.data.operationData = {
             averageSellPrice: 0,
             sellCount: 0,
