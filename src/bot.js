@@ -115,7 +115,6 @@ export class BinanceTrader {
 
             if (status === 'closed') {
                 await this.dbService.setData(amount, price, amount * EXCHANGE_FEE_PERCENT);
-                this.averageSellPrice = price;
             }
         } catch (e) {
             console.log(`❌ SELL ERROR: ${e.message}`);
@@ -252,9 +251,9 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
                 return acc;
             }, {});
 
-            this.sellClearance = sell || this.sellClearance;
-            this.buyClearance = buy || this.buyClearance;
-            this.limitBase = limit || this.limitBase;
+            this.sellClearance = Number(sell) || this.sellClearance;
+            this.buyClearance = Number(buy) || this.buyClearance;
+            this.limitBase = Number(limit) || this.limitBase;
 
             if (limit || buy || sell) {
                 this.isTrading = false;
