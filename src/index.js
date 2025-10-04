@@ -7,7 +7,6 @@ const configUAH = {
     clearanceBuy: 0.15,
     tickInterval: 10000,
     sellStepInUsdt: 20,
-    maxOrderByUSD: 10,
     limitBase: 500,
 };
 

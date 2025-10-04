@@ -15,9 +15,10 @@ export class BinanceTrader {
             options: { adjustForTimeDifference: true },
         });
 
-        this.limitBase = tradeConfig.limitBase;
-        this.sellClearance = tradeConfig.clearanceSell;
-        this.buyClearance = tradeConfig.clearanceBuy;
+        this.maxVolume = Number(tradeConfig.limitBase);
+        this.volume = Number(tradeConfig.sellStepInUsdt);
+        this.sellClearance = Number(tradeConfig.clearanceSell);
+        this.buyClearance = Number(tradeConfig.clearanceBuy);
         this.configTrade = tradeConfig;
 
         this.tg_bot = new Telegraf(process.env.TG_TOKEN);
@@ -58,14 +59,14 @@ export class BinanceTrader {
         if (!this.currentPrice || !this.trading) return;
 
         if (averageSellPrice === 0) {
-            return await this._sell(this.configTrade.sellStepInUsdt);
+            return await this._sell(this.volume);
         }
 
         const priceDifference = new Big(this.currentPrice).minus(new Big(this.averageSellPrice)).toNumber();
 
-        if (priceDifference > 0 && this.sellAmount < this.limitBase) {
-            if (this.averageSellPrice + this.sellClearance < this.currentPrice && baseBalance > this.configTrade.sellStepInUsdt) {
-                return await this._sell(this.configTrade.sellStepInUsdt);
+        if (priceDifference > 0 && this.sellAmount < this.maxVolume) {
+            if (this.averageSellPrice + this.sellClearance < this.currentPrice && baseBalance > this.volume) {
+                return await this._sell(this.volume);
             }
         }
 
@@ -207,13 +208,15 @@ export class BinanceTrader {
             const awaitingBuy = this.averageSellPrice - this.buyClearance;
 
             const extendedInfo = `
-Status: ${this.trading ? '✅ Running' : '🛑 Stopped'}
-Current Market Price: ${this.currentPrice || 0}
-Average Sell Price: ${averageSellPrice}
-Sell Count: ${sellCount}
-Amount Sold: ${amount}
+Status ${this.market}: ${this.trading ? '✅ Running' : '🛑 Stopped'}
+Current price (UAH): ${this.currentPrice || 0}
+Average price (UAH): ${averageSellPrice}
+
+Total (UAH): ${sellCount}
+Sold (USDT): ${amount}
 Fee: ${fee}
-Limit: ${this.limitBase}
+Limit: ${this.maxVolume}
+Step: ${this.volume}
 Profit: ${profit}
 
 AWAITING TO SELL:  [${this.sellClearance}]  ${awaitingSell?.toFixed(4)}
@@ -244,7 +247,8 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy?.toFixed(4)} `;
             const {
                 buy = null,
                 sell = null,
-                limit = null,
+                volume = null,
+                max_volume = null,
             } = params.reduce((acc, param) => {
                 const [key, value] = param.split('=');
                 acc[key] = value;
@@ -253,9 +257,10 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy?.toFixed(4)} `;
 
             this.sellClearance = Number(sell) || this.sellClearance;
             this.buyClearance = Number(buy) || this.buyClearance;
-            this.limitBase = Number(limit) || this.limitBase;
+            this.maxVolume = Number(max_volume) || this.maxVolume;
+            this.volume = Number(volume) || this.volume;
 
-            if (limit || buy || sell) {
+            if (volume || buy || sell || max_volume) {
                 this.isTrading = false;
                 ctx.reply('✅ You changed configuration, the bot is stopped. Run bot to start trading with new percentage.');
             }
