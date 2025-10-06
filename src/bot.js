@@ -228,7 +228,7 @@ Limit: ${this.maxVolume}
 Step: ${this.volume}
 Profit: ${profit}
 
-AWAITING TO SELL:  [${sellClearance}]  ${awaitingSell?.toFixed(4)}
+AWAITING TO SELL:  [${this.sellClearance} | ${sellClearance}]  ${awaitingSell?.toFixed(4)}
 AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy?.toFixed(4)} `;
 
             ctx.reply(extendedInfo);
