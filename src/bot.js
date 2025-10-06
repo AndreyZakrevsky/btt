@@ -166,10 +166,8 @@ export class BinanceTrader {
     }
 
     _getSellClearanceProgressive() {
-        if (this.sellAmount < 100) return this.sellClearance;
-
         const rangeIndex = Math.floor(this.sellAmount / 100);
-        return this.sellClearance + (rangeIndex - 1) * 0.1;
+        return this.sellClearance + rangeIndex * 0.1;
     }
 
     _sleep(time) {
