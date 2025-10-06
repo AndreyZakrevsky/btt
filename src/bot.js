@@ -63,9 +63,10 @@ export class BinanceTrader {
         }
 
         const priceDifference = new Big(this.currentPrice).minus(new Big(this.averageSellPrice)).toNumber();
+        const sellClearance = this._getSellClearanceProgressive();
 
         if (priceDifference > 0 && this.sellAmount < this.maxVolume) {
-            if (this.averageSellPrice + this.sellClearance < this.currentPrice && baseBalance > this.volume) {
+            if (this.averageSellPrice + sellClearance < this.currentPrice && baseBalance > this.volume) {
                 return await this._sell(this.volume);
             }
         }
@@ -164,6 +165,13 @@ export class BinanceTrader {
         }
     }
 
+    _getSellClearanceProgressive() {
+        if (this.sellAmount < 100) return this.sellClearance;
+
+        const rangeIndex = Math.floor(this.sellAmount / 100);
+        return this.sellClearance + (rangeIndex - 1) * 0.1;
+    }
+
     _sleep(time) {
         return new Promise((resolve) => setTimeout(resolve, time));
     }
@@ -204,7 +212,8 @@ export class BinanceTrader {
             const operationData = await this.dbService.getData();
             const { sellCount = 0, amount = 0, fee = 0, averageSellPrice = 0 } = operationData || {};
             const profit = this.getCurrentProfit();
-            const awaitingSell = this.averageSellPrice + this.sellClearance;
+            const sellClearance = this._getSellClearanceProgressive();
+            const awaitingSell = this.averageSellPrice + sellClearance;
             const awaitingBuy = this.averageSellPrice - this.buyClearance;
 
             const extendedInfo = `
@@ -219,7 +228,7 @@ Limit: ${this.maxVolume}
 Step: ${this.volume}
 Profit: ${profit}
 
-AWAITING TO SELL:  [${this.sellClearance}]  ${awaitingSell?.toFixed(4)}
+AWAITING TO SELL:  [${sellClearance}]  ${awaitingSell?.toFixed(4)}
 AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy?.toFixed(4)} `;
 
             ctx.reply(extendedInfo);
