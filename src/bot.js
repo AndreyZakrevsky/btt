@@ -34,7 +34,6 @@ export class BinanceTrader {
         this.fee = 0;
 
         this._setupBotInterface();
-
         this.tg_bot.launch();
         process.once('SIGINT', () => this.tg_bot.stop('SIGINT'));
         process.once('SIGTERM', () => this.tg_bot.stop('SIGTERM'));
@@ -98,7 +97,6 @@ export class BinanceTrader {
 
     async finishBuying() {
         const profit = this.getCurrentProfit();
-
         await this.dbService.updateData(profit);
     }
 
@@ -185,7 +183,6 @@ export class BinanceTrader {
 
     _getSellClearanceProgressive() {
         const rangeIndex = Math.floor(this.sellAmount / 100);
-
         return Number((this.sellClearance + rangeIndex * 0.1).toFixed(4));
     }
 
@@ -207,20 +204,14 @@ export class BinanceTrader {
         });
 
         this.tg_bot.hears('Start Trading', async (ctx) => {
-            if (this.trading) {
-                return ctx.reply('❗ Trading is already running.');
-            }
-
+            if (this.trading) return ctx.reply('❗ Trading is already running.');
             this.trading = true;
             ctx.reply('✅ Trading has started!');
             this.tick();
         });
 
         this.tg_bot.hears('Stop Trading', async (ctx) => {
-            if (!this.trading) {
-                return ctx.reply('❗ Trading is already stopped.');
-            }
-
+            if (!this.trading) return ctx.reply('❗ Trading is already stopped.');
             this.trading = false;
             ctx.reply('🛑 Trading has stopped!');
         });
