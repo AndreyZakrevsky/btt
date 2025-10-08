@@ -212,13 +212,13 @@ export class BinanceTrader {
             const { sellCount = 0, amount = 0, fee = 0, averageSellPrice = 0 } = operationData || {};
             const profit = this.getCurrentProfit();
             const sellClearance = this._getSellClearanceProgressive();
-            const awaitingSell = this.averageSellPrice + sellClearance;
-            const awaitingBuy = this.averageSellPrice - this.buyClearance;
+            const awaitingSell = Number(this.averageSellPrice + sellClearance).toFixed(4);
+            const awaitingBuy = Number(this.averageSellPrice - this.buyClearance).toFixed(4);
 
             const extendedInfo = `
 Status ${this.market}: ${this.trading ? '✅ Running' : '🛑 Stopped'}
 Current price (UAH): ${this.currentPrice || 0}
-Average price (UAH): ${averageSellPrice}
+Average price (UAH): ${averageSellPrice?.toFixed(4)}
 
 Total (UAH): ${sellCount}
 Sold (USDT): ${amount}
