@@ -218,7 +218,7 @@ export class BinanceTrader {
             const extendedInfo = `
 Status ${this.market}: ${this.trading ? '✅ Running' : '🛑 Stopped'}
 Current price (UAH): ${this.currentPrice || 0}
-Average price (UAH): ${averageSellPrice?.toFixed(4)}
+Average price (UAH): ${Number(averageSellPrice).toFixed(4)}
 
 Total (UAH): ${sellCount}
 Sold (USDT): ${amount}
@@ -227,8 +227,8 @@ Limit: ${this.maxVolume}
 Step: ${this.volume}
 Profit: ${profit}
 
-AWAITING TO SELL:  [${this.sellClearance} | ${sellClearance}]  ${awaitingSell?.toFixed(4)}
-AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy?.toFixed(4)} `;
+AWAITING TO SELL:  [${this.sellClearance} | ${sellClearance}]  ${awaitingSell}
+AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
 
             ctx.reply(extendedInfo);
         });
