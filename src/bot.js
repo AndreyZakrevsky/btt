@@ -6,6 +6,7 @@ import { Telegraf, Markup } from 'telegraf';
 
 const EXCHANGE_FEE = 0.998;
 const EXCHANGE_FEE_PERCENT = 0.002;
+const BUY_BUFFER_ASK = 0.02;
 
 export class BinanceTrader {
     constructor(tradeConfig) {
@@ -72,9 +73,26 @@ export class BinanceTrader {
         }
 
         if (priceDifference < 0) {
-            if (this.averageSellPrice - this.buyClearance >= this.currentPrice) {
+            const ableToBuy = await this._canBuyWithFlexibility();
+            if (this.averageSellPrice - this.buyClearance >= this.currentPrice && ableToBuy) {
                 return await this._buy(this.sellAmount);
             }
+        }
+    }
+
+    async _canBuyWithFlexibility() {
+        try {
+            const orderBook = await this.binanceClient.fetchOrderBook(this.market);
+            const asks = orderBook.asks.slice(0, 10);
+
+            const filteredAsks = asks.filter(([orderPrice]) => orderPrice <= this.currentPrice + BUY_BUFFER_ASK);
+
+            const totalVolume = filteredAsks.reduce((acc, [, orderAmount]) => acc + orderAmount, 0);
+
+            return totalVolume >= this.sellAmount;
+        } catch (error) {
+            console.error('Error in canBuyWithFlexibility:', error);
+            return false;
         }
     }
 
