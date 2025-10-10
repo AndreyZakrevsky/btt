@@ -283,12 +283,12 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
                     shouldRestart = true;
                 }
 
-                if (!isNaN(params.max_volume)) {
+                if (!isNaN(params.limit)) {
                     this.maxVolume = params.limit;
                     shouldRestart = true;
                 }
 
-                if (!isNaN(params.volume)) {
+                if (!isNaN(params.step)) {
                     this.volume = params.step;
                     shouldRestart = true;
                 }
