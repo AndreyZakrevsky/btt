@@ -260,30 +260,53 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
         });
 
         this.tg_bot.command('set', async (ctx) => {
-            const text = ctx.message.text;
-            const params = text.split(' ').slice(1);
-            const {
-                buy = null,
-                sell = null,
-                volume = null,
-                max_volume = null,
-                buffer = null,
-            } = params.reduce((acc, param) => {
-                const [key, value] = param.split('=');
-                acc[key] = value;
-                return acc;
-            }, {});
+            try {
+                const text = ctx.message.text;
+                const params = text
+                    .split(' ')
+                    .slice(1)
+                    .reduce((acc, param) => {
+                        const [key, value] = param.split('=');
+                        acc[key] = parseFloat(value);
+                        return acc;
+                    }, {});
 
-            this.sellClearance = Number(sell) || this.sellClearance;
-            this.buyClearance = Number(buy) || this.buyClearance;
-            this.maxVolume = Number(max_volume) || this.maxVolume;
-            this.volume = Number(volume) || this.volume;
+                let shouldRestart = false;
 
-            this.bufferAsk = Number(buffer) || this.bufferAsk;
+                if (!isNaN(params.sell)) {
+                    this.sellClearance = params.sell;
+                    shouldRestart = true;
+                }
 
-            if (volume || buy || sell || max_volume || buffer) {
+                if (!isNaN(params.buy)) {
+                    this.buyClearance = params.buy;
+                    shouldRestart = true;
+                }
+
+                if (!isNaN(params.max_volume)) {
+                    this.maxVolume = params.max_volume;
+                    shouldRestart = true;
+                }
+
+                if (!isNaN(params.volume)) {
+                    this.volume = params.volume;
+                    shouldRestart = true;
+                }
+
+                if (!isNaN(params.buffer)) {
+                    this.bufferAsk = params.buffer;
+                    shouldRestart = true;
+                }
+
+                if (!shouldRestart) {
+                    return ctx.reply('❗ No valid parameters provided. Valid parameters: sell, buy, max_volume, volume, buffer.');
+                }
+
                 this.isTrading = false;
-                ctx.reply('✅ You changed configuration, the bot is stopped. Run bot to start trading with new percentage.');
+                ctx.reply(`✅ Configuration updated. The bot is stopped. Restart it to apply changes.`);
+            } catch (error) {
+                console.error('Error in set command:', error);
+                ctx.reply('❌ An error occurred while processing your command. Please try again.');
             }
         });
     }
