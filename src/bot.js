@@ -284,12 +284,12 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
                 }
 
                 if (!isNaN(params.max_volume)) {
-                    this.maxVolume = params.max_volume;
+                    this.maxVolume = params.limit;
                     shouldRestart = true;
                 }
 
                 if (!isNaN(params.volume)) {
-                    this.volume = params.volume;
+                    this.volume = params.step;
                     shouldRestart = true;
                 }
 
@@ -299,7 +299,7 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
                 }
 
                 if (!shouldRestart) {
-                    return ctx.reply('❗ No valid parameters provided. Valid parameters: sell, buy, max_volume, volume, buffer.');
+                    return ctx.reply('❗ No valid parameters provided. Valid parameters: sell, buy, limit, step, buffer. All values ​​must be numeric');
                 }
 
                 this.isTrading = false;
