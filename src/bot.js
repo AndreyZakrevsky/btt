@@ -6,7 +6,6 @@ import { Telegraf, Markup } from 'telegraf';
 
 const EXCHANGE_FEE = 0.998;
 const EXCHANGE_FEE_PERCENT = 0.002;
-const BUY_BUFFER_ASK = 0.02;
 
 export class BinanceTrader {
     constructor(tradeConfig) {
@@ -20,6 +19,7 @@ export class BinanceTrader {
         this.volume = Number(tradeConfig.sellStepInUsdt);
         this.sellClearance = Number(tradeConfig.clearanceSell);
         this.buyClearance = Number(tradeConfig.clearanceBuy);
+        this.bufferAsk = 0.04;
         this.configTrade = tradeConfig;
 
         this.tg_bot = new Telegraf(process.env.TG_TOKEN);
@@ -82,9 +82,9 @@ export class BinanceTrader {
     async _canBuyWithFlexibility() {
         try {
             const orderBook = await this.binanceClient.fetchOrderBook(this.market);
-            const asks = orderBook.asks.slice(0, 10);
+            const asks = orderBook.asks.slice(0, 20);
 
-            const filteredAsks = asks.filter(([orderPrice]) => orderPrice <= this.currentPrice + BUY_BUFFER_ASK);
+            const filteredAsks = asks.filter(([orderPrice]) => orderPrice <= this.currentPrice + this.bufferAsk);
 
             const totalVolume = filteredAsks.reduce((acc, [, orderAmount]) => acc + orderAmount, 0);
 
@@ -234,6 +234,7 @@ Sold (USDT): ${amount}
 Fee: ${fee}
 Limit: ${this.maxVolume}
 Step: ${this.volume}
+Buffer ask: ${this.bufferAsk}
 Profit: ${profit}
 
 AWAITING TO SELL:  [${this.sellClearance} | ${sellClearance}]  ${awaitingSell}
@@ -266,6 +267,7 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
                 sell = null,
                 volume = null,
                 max_volume = null,
+                buffer = null,
             } = params.reduce((acc, param) => {
                 const [key, value] = param.split('=');
                 acc[key] = value;
@@ -277,7 +279,9 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
             this.maxVolume = Number(max_volume) || this.maxVolume;
             this.volume = Number(volume) || this.volume;
 
-            if (volume || buy || sell || max_volume) {
+            this.bufferAsk = Number(buffer) || this.bufferAsk;
+
+            if (volume || buy || sell || max_volume || buffer) {
                 this.isTrading = false;
                 ctx.reply('✅ You changed configuration, the bot is stopped. Run bot to start trading with new percentage.');
             }

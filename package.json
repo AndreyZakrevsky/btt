@@ -6,10 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "pm2 start src/index.js --name btt && pm2 logs",
-    "flush": "pm2 flush && pm2 delete btt",
-    "stop": "pm2 stop btt",
-    "delete": "pm2 delete btt",
+    "start": "pm2 start src/index.js --name btt_uah && pm2 logs",
+    "flush": "pm2 flush && pm2 delete btt_uah",
+    "stop": "pm2 stop btt_uah",
+    "delete": "pm2 delete btt_uah",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
