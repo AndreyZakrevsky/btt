@@ -6,10 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "pm2 start src/index.js --name btt_uah && pm2 logs",
-    "flush": "pm2 flush && pm2 delete btt_uah",
-    "stop": "pm2 stop btt_uah",
-    "delete": "pm2 delete btt_uah",
+    "start": "pm2 start ecosystem.config.cjs && pm2 logs",
+    "stop": "pm2 stop all",
+    "delete": "pm2 delete all && sleep 2 && rm -rf ~/.pm2/logs/*",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

@@ -1,18 +1,31 @@
+import fs from 'fs';
 import path from 'path';
 import { Low, JSONFile } from 'lowdb';
 import Big from 'big.js';
 
 export class DatabaseLocal {
-    constructor() {
-        const file = path.resolve(process.cwd(), 'localDB.json');
-        const adapter = new JSONFile(file);
+    constructor(uniqueName = 'default') {
+        const dbFolder = path.resolve(process.cwd(), 'db');
+        if (!fs.existsSync(dbFolder)) {
+            fs.mkdirSync(dbFolder);
+        }
+
+        const fileName = `${uniqueName}-localDB.json`;
+        const filePath = path.join(dbFolder, fileName);
+
+        if (!fs.existsSync(filePath)) {
+            fs.writeFileSync(filePath, JSON.stringify({}, null, 2));
+        }
+
+        const adapter = new JSONFile(filePath);
         this.db = new Low(adapter);
+
         this._initialize();
     }
 
     async _initialize() {
         await this.db.read();
-        if (!this.db.data) this._initDefault();
+        if (!this.db?.data?.operationData) this._initDefault();
     }
 
     async _initDefault() {

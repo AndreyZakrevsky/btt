@@ -19,12 +19,11 @@ export class BinanceTrader {
         this.volume = Number(tradeConfig.sellStepInUsdt);
         this.sellClearance = Number(tradeConfig.clearanceSell);
         this.buyClearance = Number(tradeConfig.clearanceBuy);
+        this.interval = Number(tradeConfig.tickInterval);
         this.bufferAsk = 0.04;
         this.configTrade = tradeConfig;
-
         this.tg_bot = new Telegraf(process.env.TG_TOKEN);
-        this.dbService = new DatabaseLocal();
-
+        this.dbService = new DatabaseLocal(tradeConfig.asset);
         this.market = `${tradeConfig.base}/${tradeConfig.asset}`;
         this.averageSellPrice = 0;
         this.sellAmount = 0;
@@ -41,7 +40,7 @@ export class BinanceTrader {
 
     async tick() {
         while (this.isTrading) {
-            await this._sleep(this.configTrade.tickInterval);
+            await this._sleep(this.interval);
             await this._trade();
             this.tickCount += 1;
         }
@@ -236,6 +235,7 @@ Limit: ${this.maxVolume}
 Step: ${this.volume}
 Buffer ask: ${this.bufferAsk}
 Profit: ${profit}
+Interval (sec): ${this.interval / 1000}
 
 AWAITING TO SELL:  [${this.sellClearance} | ${sellClearance}]  ${awaitingSell}
 AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
@@ -295,6 +295,11 @@ AWAITING TO BUY:   [${this.buyClearance}]  ${awaitingBuy} `;
 
                 if (!isNaN(params.buffer)) {
                     this.bufferAsk = params.buffer;
+                    shouldRestart = true;
+                }
+
+                if (!isNaN(params.interval)) {
+                    this.interval = params.interval * 1000;
                     shouldRestart = true;
                 }
 

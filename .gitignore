@@ -14,4 +14,5 @@ yarn-error.log*
 .idea/
 *.swp
 
-localDB.json
+db
+ecosystem.config.cjs
