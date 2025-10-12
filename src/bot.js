@@ -29,7 +29,7 @@ export class BinanceTrader {
         this.averageSellPrice = 0;
         this.sellAmount = 0;
         this.tickCount = 0;
-        this.trading = false;
+        this.isTrading = false;
         this.currentPrice = null;
         this.fee = 0;
 
@@ -40,7 +40,7 @@ export class BinanceTrader {
     }
 
     async tick() {
-        while (this.trading) {
+        while (this.isTrading) {
             await this._sleep(this.configTrade.tickInterval);
             await this._trade();
             this.tickCount += 1;
@@ -56,7 +56,7 @@ export class BinanceTrader {
         this.fee = fee;
         this.currentPrice = await this._getLastMarketPrice();
 
-        if (!this.currentPrice || !this.trading) return;
+        if (!this.currentPrice || !this.isTrading) return;
 
         if (averageSellPrice === 0) {
             return await this._sell(this.volume);
@@ -204,15 +204,15 @@ export class BinanceTrader {
         });
 
         this.tg_bot.hears('Start Trading', async (ctx) => {
-            if (this.trading) return ctx.reply('❗ Trading is already running.');
-            this.trading = true;
+            if (this.isTrading) return ctx.reply('❗ Trading is already running.');
+            this.isTrading = true;
             ctx.reply('✅ Trading has started!');
             this.tick();
         });
 
         this.tg_bot.hears('Stop Trading', async (ctx) => {
-            if (!this.trading) return ctx.reply('❗ Trading is already stopped.');
-            this.trading = false;
+            if (!this.isTrading) return ctx.reply('❗ Trading is already stopped.');
+            this.isTrading = false;
             ctx.reply('🛑 Trading has stopped!');
         });
 
@@ -225,7 +225,7 @@ export class BinanceTrader {
             const awaitingBuy = Number(this.averageSellPrice - this.buyClearance).toFixed(4);
 
             const extendedInfo = `
-Status ${this.market}: ${this.trading ? '✅ Running' : '🛑 Stopped'}
+Status ${this.market}: ${this.isTrading ? '✅ Running' : '🛑 Stopped'}
 Current price (UAH): ${this.currentPrice || 0}
 Average price (UAH): ${Number(averageSellPrice).toFixed(4)}
 

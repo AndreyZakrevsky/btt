@@ -1,5 +1,5 @@
 {
-  "name": "BTT",
+  "name": "BBTB_uah",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -14,12 +14,10 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "@binance/connector": "^3.6.1",
     "axios": "^1.12.2",
     "big.js": "^6.1.1",
     "ccxt": "^4.5.4",
     "dotenv": "^17.2.2",
-    "gate-api": "^7.1.8",
     "lowdb": "^2.0.2",
     "luxon": "^3.7.2",
     "nodemon": "^3.1.10",
